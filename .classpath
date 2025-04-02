@@ -6,7 +6,7 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="/Users/oussamaguelfaa/Downloads/maqitsimulator.jar"/>
 	<classpathentry kind="lib" path="/Users/oussamaguelfaa/Downloads/ini4j-0.5.1.jar"/>
+	<classpathentry kind="lib" path="/Users/oussamaguelfaa/Downloads/maqitSimulator (1).jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
