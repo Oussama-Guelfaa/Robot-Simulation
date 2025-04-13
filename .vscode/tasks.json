@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compile Java",
+            "type": "shell",
+            "command": "mkdir -p bin && mkdir -p lib && cp \"/Users/oussamaguelfaa/Downloads/ini4j-0.5.1.jar\" lib/ && cp \"/Users/oussamaguelfaa/Downloads/maqitSimulator (1).jar\" \"lib/maqitSimulator.jar\" && \"/Users/oussamaguelfaa/Library/Application Support/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/17/bin/javac\" -source 17 -target 17 -d bin -cp \"lib/ini4j-0.5.1.jar:lib/maqitSimulator.jar:.\" src/Simulator/*.java",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

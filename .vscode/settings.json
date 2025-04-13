@@ -1,0 +1,18 @@
+{
+    "java.project.sourcePaths": ["src"],
+    "java.project.outputPath": "bin",
+    "java.project.referencedLibraries": [
+        "lib/ini4j-0.5.1.jar",
+        "lib/maqitSimulator.jar"
+    ],
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "/Users/oussamaguelfaa/Library/Application Support/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/17",
+            "default": true
+        }
+    ],
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.project.targetLevel": "17",
+    "java.project.sourceLevel": "17"
+}

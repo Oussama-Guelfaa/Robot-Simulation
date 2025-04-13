@@ -1,57 +1,80 @@
 package Simulator;
 
 import fr.emse.fayol.maqit.simulator.components.ColorPackage;
-import fr.emse.fayol.maqit.simulator.components.ColorStartZone;
-import fr.emse.fayol.maqit.simulator.components.ColorTransitZone;
-import fr.emse.fayol.maqit.simulator.components.ComponentType;
-import fr.emse.fayol.maqit.simulator.components.Message;
+// import fr.emse.fayol.maqit.simulator.components.Message;
 import fr.emse.fayol.maqit.simulator.components.PackageState;
-import fr.emse.fayol.maqit.simulator.components.Orientation;
+import fr.emse.fayol.maqit.simulator.components.ColorTransitZone;
+import fr.emse.fayol.maqit.simulator.components.ColorStartZone;
+import fr.emse.fayol.maqit.simulator.components.Robot;
 import fr.emse.fayol.maqit.simulator.environment.Cell;
 import fr.emse.fayol.maqit.simulator.environment.ColorCell;
 import fr.emse.fayol.maqit.simulator.environment.ColorGridEnvironment;
-import fr.emse.fayol.maqit.simulator.environment.Location;
 
 import java.awt.Color;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-
-/**
- * MyTransitRobot:
- * Similar to MyRobot but enhanced to:
- *  - Potentially pick up packages from a transit zone
- *  - Possibly drop a carried package in a transit zone if beneficial
- */
 public class MyTransitRobot extends MyRobot {
 
-    // We'll reuse the same enum from MyRobot: { FREE, TRANSPORT, DELIVRE }
-    // The logic is extended to handle transit zones, but states remain the same.
+    // Enum to track the robot's state with transit zones
+    public enum TransitState {
+        FREE,               // Robot is free to pick up packages
+        GOING_TO_START,    // Robot is going to a start zone
+        GOING_TO_TRANSIT,  // Robot is going to a transit zone
+        GOING_TO_GOAL,     // Robot is going to the final goal
+        WAITING_AT_TRANSIT,// Robot is waiting at a transit zone
+        PICKING_FROM_TRANSIT, // Robot is picking up from a transit zone
+        DELIVERED          // Robot has delivered the package
+    }
 
-    // Positions of transit zones. 
-    // In your environment.ini you have lines like:
-    //   zone1 = 12,10,1
-    //   zone2 = 12,9,1
-    //   zone3 = 9,10,1
-    //   zone4 = 9,9,1
-    // We'll just store the x,y coords for the logic here:
-    private int[][] transitZones = {
-        {12, 10},
-        {12, 9},
-        {9, 10},
-        {9, 9}
-    };
+    private TransitState transitState;
+    private int transitX;
+    private int transitY;
 
-    public MyTransitRobot(String name, int field, int debug, int[] pos, Color color,
-                          int rows, int columns, ColorGridEnvironment env, long seed) {
+    // Battery management
+    private double batteryLevel = 100.0;
+
+    // Communication
+    private static final String MSG_HELP_REQUEST = "HELP_REQUEST";
+    private static final String MSG_HELP_OFFER = "HELP_OFFER";
+    private static final String MSG_TRANSIT_FULL = "TRANSIT_FULL";
+    private static final String MSG_TRANSIT_AVAILABLE = "TRANSIT_AVAILABLE";
+    private static final String MSG_LOW_BATTERY = "LOW_BATTERY";
+    private boolean waitingForHelp = false;
+
+    // Coordinates of transit zones
+    int[][] transitZones = {{12, 10}, {12, 9}, {9, 10}, {9, 9}};
+
+    // Coordinates of charging stations (near transit zones)
+    int[][] chargingStations = {{11, 10}, {13, 9}, {8, 10}, {10, 9}};
+    private boolean isCharging = false;
+
+    // Battery management constants
+    private static final double MAX_BATTERY = 100.0;
+    private static final double CRITICAL_BATTERY_THRESHOLD = 15.0;
+    private static final double LOW_BATTERY_THRESHOLD = 30.0;
+    private static final double MOVE_BATTERY_COST = 0.5;
+    private static final double PICKUP_BATTERY_COST = 2.0;
+    private static final double DEPOSIT_BATTERY_COST = 2.0;
+    private static final double CHARGING_RATE = 5.0;
+    // Initialize battery level in constructor
+
+    public MyTransitRobot(String name, int field, int debug, int[] pos, Color color, int rows, int columns, ColorGridEnvironment env, long seed) {
         super(name, field, debug, pos, color, rows, columns, env, seed);
-        // MyRobot sets etat = FREE initially
+        this.transitState = TransitState.FREE;
+        this.batteryLevel = MAX_BATTERY; // Start with full battery
     }
 
     /**
-     * Find a transit zone that is NOT full.
-     * Returns the first zone found that can accept a new package.
+     * Check if the robot has delivered its package
+     * @return true if the robot has delivered its package, false otherwise
+     */
+    public boolean hasDelivered() {
+        return etat == Etat.DELIVRE;
+    }
+
+    /**
+     * Find a transit zone that is NOT full
+     * @return The first transit zone found that can accept a new package
      */
     private ColorTransitZone findTransitZoneNotFull() {
         for (int[] tzPos : transitZones) {
@@ -59,6 +82,8 @@ public class MyTransitRobot extends MyRobot {
             if (c instanceof ColorCell && ((ColorCell)c).getContent() instanceof ColorTransitZone) {
                 ColorTransitZone tz = (ColorTransitZone) ((ColorCell)c).getContent();
                 if (!tz.isFull()) {
+                    transitX = tzPos[0];
+                    transitY = tzPos[1];
                     return tz;
                 }
             }
@@ -67,15 +92,17 @@ public class MyTransitRobot extends MyRobot {
     }
 
     /**
-     * Find a transit zone that has at least one package waiting.
+     * Find a transit zone that has packages
+     * @return The first transit zone found with packages
      */
     private ColorTransitZone findTransitZoneWithPackage() {
         for (int[] tzPos : transitZones) {
             Cell c = env.getGrid()[tzPos[0]][tzPos[1]];
             if (c instanceof ColorCell && ((ColorCell)c).getContent() instanceof ColorTransitZone) {
                 ColorTransitZone tz = (ColorTransitZone) ((ColorCell)c).getContent();
-                List<ColorPackage> packages = tz.getPackages();
-                if (packages != null && !packages.isEmpty()) {
+                if (tz.getPackages().size() > 0) {
+                    transitX = tzPos[0];
+                    transitY = tzPos[1];
                     return tz;
                 }
             }
@@ -84,142 +111,525 @@ public class MyTransitRobot extends MyRobot {
     }
 
     /**
-     * Compare direct distance to final goal vs. going via a transit zone.
-     * Return true if it's beneficial to drop at the transit zone, false if direct is better.
-     * 
-     * For simplicity, we do a naive comparison:
-     *   distance(robot->transitZone) + distance(transitZone->goal) 
-     *   vs. 
-     *   distance(robot->goal)
-     *
-     * If the transit route is shorter, we say it's "better to use transit."
-     * In a real scenario, you might consider more advanced metrics (battery, traffic, etc.).
+     * Check if all transit zones are full
+     * @return true if all transit zones are full, false otherwise
      */
-    private boolean isBetterToUseTransit(int destX, int destY, ColorTransitZone tz) {
-        double directDist = distanceTo(getX(), getY(), destX, destY);
-        double toTransitDist = distanceTo(getX(), getY(), tz.getX(), tz.getY());
-        double tzToGoalDist = distanceTo(tz.getX(), tz.getY(), destX, destY);
-        return (toTransitDist + tzToGoalDist < directDist);
+    private boolean transitZonesAreFull() {
+        for (int[] pos : transitZones) {
+            Cell c = env.getGrid()[pos[0]][pos[1]];
+            if (c instanceof ColorCell && c.getContent() instanceof ColorTransitZone) {
+                ColorTransitZone tz = (ColorTransitZone) c.getContent();
+                if (!tz.isFull()) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
-     * Overridden step() to incorporate intermediate zone logic.
+     * Determine if it's better to use a transit zone based on distance
+     * @param destX Destination X coordinate
+     * @param destY Destination Y coordinate
+     * @return true if using transit is better, false otherwise
      */
-   
+    private boolean isBetterToUseTransit(int destX, int destY) {
+        // Calculate direct distance from current position to destination
+        double directDistance = distanceTo(this.getX(), this.getY(), destX, destY);
+
+        // Find the closest transit zone
+        ColorTransitZone tz = findTransitZoneNotFull();
+        if (tz == null) return false; // No available transit zone
+
+        // Calculate distance via transit zone
+        double distanceToTransit = distanceTo(this.getX(), this.getY(), transitX, transitY);
+        double distanceFromTransitToDest = distanceTo(transitX, transitY, destX, destY);
+        double totalTransitDistance = distanceToTransit + distanceFromTransitToDest;
+
+        // Use transit if it's not significantly longer (within 30% of direct distance)
+        return totalTransitDistance <= directDistance * 1.3;
+    }
+
+    /**
+     * Get methods for the carried package
+     */
+    public ColorPackage getCarriedPackage() {
+        return carriedPackage;
+    }
+
+    public void setCarriedPackage(ColorPackage pack) {
+        this.carriedPackage = pack;
+    }
+
+    /**
+     * The main logic for the transit robot's movement
+     */
     @Override
     public void step() {
-    	
-        // If robot is already delivered, do nothing
+        // If the robot has delivered, do nothing
         if (etat == Etat.DELIVRE) return;
 
-        // If robot is transporting a package (etat=TRANSPORT)...
-        if (etat == Etat.TRANSPORT && carriedPackage != null) {
-            // Check if we've arrived at the final goal
-            if (this.getX() == destX && this.getY() == destY) {
-                // Mark the package as arrived
-                carriedPackage.setState(PackageState.ARRIVED);
-                MySimFactory.deliveredCount++;
-                tempsArrivee = System.currentTimeMillis();
-                etat = Etat.DELIVRE;
-                env.removeCellContent(this.getX(), this.getY()); 
-                System.out.println(getName() + " a livré le paquet " 
-                    + carriedPackage.getId() + " à destination.");
-            } else {
-                // Possibly check if we still want to drop at a transit zone
-                // E.g., if we find a not-full zone and it's beneficial
-                ColorTransitZone tz = findTransitZoneNotFull();
-                if (tz != null && isBetterToUseTransit(destX, destY, tz)) {
-                    // Move to the transit zone, drop the package, become FREE
-                    moveOneStepTo(tz.getX(), tz.getY());
-                    // If we are adjacent, we can drop
-                    if (isAdjacentTo(tz.getX(), tz.getY())) {
-                        tz.addPackage(carriedPackage);
-                        System.out.println(getName() + " a déposé le paquet " 
-                            + carriedPackage.getId() + " dans la zone de transit.");
-                        carriedPackage = null;
-                        etat = Etat.FREE;
-                    }
-                } else {
-                    // Move one step to the final destination
-                    moveOneStepTo(destX, destY);
-                }
-            }
+        // Check if robot is stuck
+        if (isStuck()) {
+            tryToUnstuck();
             return;
         }
 
-        // If the robot is FREE (no package):
+        // Check if robot needs to charge
+        if (batteryLevel <= CRITICAL_BATTERY_THRESHOLD) {
+            // Battery is critically low, find a charging station
+            if (isCharging) {
+                chargeBattery();
+                return;
+            } else if (isNearChargingStation()) {
+                isCharging = true;
+                System.out.println(getName() + " a commencé à charger sa batterie.");
+                return;
+            } else {
+                // Move towards the nearest charging station
+                int[] nearestCS = findNearestChargingStation();
+                if (nearestCS != null) {
+                    moveOneStepTo(nearestCS[0], nearestCS[1]);
+                    consumeBatteryForMovement();
+                    return;
+                }
+            }
+        }
+
+        // Robot is free and looking for a package
         if (etat == Etat.FREE) {
-            // 1) Try picking up from a transit zone that already has a package
-            ColorTransitZone tzWithPackage = findTransitZoneWithPackage();
-            if (tzWithPackage != null) {
-                // Move or pick from that transit zone
-                int tx = tzWithPackage.getX();
-                int ty = tzWithPackage.getY();
-                if (isAdjacentTo(tx, ty)) {
-                    // Remove first available package from the transit zone
-                    List<ColorPackage> pcks = tzWithPackage.getPackages();
-                    if (!pcks.isEmpty()) {
-                        ColorPackage pkg = (ColorPackage) pcks.get(0);
-                        tzWithPackage.removePackage(pkg);
-                        carriedPackage = pkg;
-                        // Determine final goal from the package
-                        int[] goalPos = GOALS.get(pkg.getDestinationGoalId());
+            // First check if there are packages in transit zones
+            ColorTransitZone transitWithPackage = findTransitZoneWithPackage();
+
+            if (transitWithPackage != null) {
+                // There's a package in a transit zone, go get it
+                if (isAdjacentTo(transitX, transitY)) {
+                    // We're next to the transit zone, pick up the package
+                    List<ColorPackage> packages = transitWithPackage.getPackages();
+                    if (!packages.isEmpty()) {
+                        carriedPackage = packages.get(0);
+                        transitWithPackage.removePackage(carriedPackage);
+                        consumeBatteryForPickup();
+                        tempsDepart = System.currentTimeMillis();
+
+                        int[] goalPos = GOALS.get(carriedPackage.getDestinationGoalId());
                         if (goalPos != null) {
                             destX = goalPos[0];
                             destY = goalPos[1];
+                            etat = Etat.TRANSPORT;
+                            transitState = TransitState.GOING_TO_GOAL;
                         }
-                        etat = Etat.TRANSPORT;
-                        tempsDepart = System.currentTimeMillis();
-                        System.out.println(getName() 
-                            + " a récupéré un paquet depuis une zone de transit pour la destination " 
-                            + pkg.getDestinationGoalId());
+
+                        System.out.println(getName() + " a pris un paquet de la zone de transit (" + transitX + "," + transitY + ") pour la destination " + carriedPackage.getDestinationGoalId());
                     }
                 } else {
-                    // Move closer to that zone
-                    moveOneStepTo(tx, ty);
-                }
-                return;
-            }
-
-            // 2) If no transit zone has a package, pick up from a start zone
-            ColorStartZone startZone = findStartZoneWithPackage();
-            if (startZone == null) {
-                // No start zone has a package => do nothing or roam
-                return;
-            }
-
-            // If we are adjacent to that start zone, pick up the first package
-            if (isAdjacentTo(startZone.getX(), startZone.getY())) {
-                if (!startZone.getPackages().isEmpty()) {
-                    carriedPackage = startZone.getPackages().get(0);
-                    startZone.removePackage(carriedPackage);
-                    tempsDepart = System.currentTimeMillis();
-                    int[] goalPos = GOALS.get(carriedPackage.getDestinationGoalId());
-                    if (goalPos != null) {
-                        destX = goalPos[0];
-                        destY = goalPos[1];
-                        etat = Etat.TRANSPORT;
-                    }
-                    System.out.println(getName() + " a pris un paquet de " 
-                        + carriedPackage.getStartZone() + " pour la destination " 
-                        + carriedPackage.getDestinationGoalId());
+                    // Move towards the transit zone
+                    moveOneStepTo(transitX, transitY);
                 }
             } else {
-                // Move one step closer to that start zone
-                moveOneStepTo(startZone.getX(), startZone.getY());
+                // Check start zones for packages
+                ColorStartZone startZone = findStartZoneWithPackage();
+                if (startZone == null) return;
+
+                if (isAdjacentTo(startZone.getX(), startZone.getY())) {
+                    // We're next to the start zone, pick up the package
+                    if (!startZone.getPackages().isEmpty()) {
+                        carriedPackage = startZone.getPackages().get(0);
+                        startZone.removePackage(carriedPackage);
+                        tempsDepart = System.currentTimeMillis();
+
+                        int[] goalPos = GOALS.get(carriedPackage.getDestinationGoalId());
+                        if (goalPos != null) {
+                            destX = goalPos[0];
+                            destY = goalPos[1];
+
+                            // Decide whether to use transit zone
+                            if (isBetterToUseTransit(destX, destY) && !transitZonesAreFull()) {
+                                // Use transit zone
+                                ColorTransitZone tz = findTransitZoneNotFull();
+                                if (tz != null) {
+                                    etat = Etat.TRANSPORT;
+                                    transitState = TransitState.GOING_TO_TRANSIT;
+                                    System.out.println(getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
+                                                     " et va le déposer dans une zone de transit (" + transitX + "," + transitY + ")");
+                                } else {
+                                    // Direct delivery if no transit zone available
+                                    etat = Etat.TRANSPORT;
+                                    transitState = TransitState.GOING_TO_GOAL;
+                                    System.out.println(getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
+                                                     " pour la destination " + carriedPackage.getDestinationGoalId());
+                                }
+                            } else {
+                                // Direct delivery
+                                etat = Etat.TRANSPORT;
+                                transitState = TransitState.GOING_TO_GOAL;
+                                System.out.println(getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
+                                                 " pour la destination " + carriedPackage.getDestinationGoalId());
+                            }
+                        }
+                    }
+                } else {
+                    // Move towards the start zone
+                    moveOneStepTo(startZone.getX(), startZone.getY());
+                }
+            }
+        } else if (etat == Etat.TRANSPORT) {
+            // Robot is carrying a package
+            if (transitState == TransitState.GOING_TO_TRANSIT) {
+                // Going to a transit zone
+                if (isAdjacentTo(transitX, transitY)) {
+                    // We're next to the transit zone, deposit the package
+                    Cell c = env.getGrid()[transitX][transitY];
+                    if (c instanceof ColorCell && c.getContent() instanceof ColorTransitZone) {
+                        ColorTransitZone tz = (ColorTransitZone) c.getContent();
+                        if (!tz.isFull()) {
+                            tz.addPackage(carriedPackage);
+                            consumeBatteryForDeposit();
+                            System.out.println(getName() + " a déposé un paquet dans la zone de transit (" + transitX + "," + transitY + ")");
+                            carriedPackage = null;
+                            etat = Etat.FREE;
+                            transitState = TransitState.FREE;
+                        }
+                    }
+                } else {
+                    // Move towards the transit zone
+                    moveOneStepTo(transitX, transitY);
+                }
+            } else if (transitState == TransitState.GOING_TO_GOAL) {
+                // Going to the final destination
+                if ((this.getX() == destX) && (this.getY() == destY)) {
+                    // We've reached the destination
+                    carriedPackage.setState(PackageState.ARRIVED);
+                    consumeBatteryForDeposit();
+                    MySimFactory.deliveredCount++;
+
+                    tempsArrivee = System.currentTimeMillis();
+                    System.out.println(getName() + " a livré le paquet " + carriedPackage.getId() + " à destination.");
+
+                    etat = Etat.DELIVRE;
+                    transitState = TransitState.DELIVERED;
+                    // Remove the robot from the environment
+                    env.removeCellContent(this.getX(), this.getY());
+                    // Set the carriedPackage to null to ensure it's not interacting with anything
+                    carriedPackage = null;
+                    // Set isCharging to false to ensure it doesn't try to charge
+                    isCharging = false;
+                } else {
+                    // Check if we have enough battery to reach the goal
+                    if (batteryLevel < CRITICAL_BATTERY_THRESHOLD || !canReachDestination(destX, destY)) {
+                        // Not enough battery, find a charging station
+                        if (isNearChargingStation()) {
+                            isCharging = true;
+                            System.out.println(getName() + " a besoin de recharger avant de continuer vers la destination.");
+                            return;
+                        } else {
+                            // Move towards the nearest charging station
+                            int[] nearestCS = findNearestChargingStation();
+                            if (nearestCS != null) {
+                                System.out.println(getName() + " se dirige vers une station de recharge car batterie insuffisante pour atteindre la destination.");
+                                moveOneStepTo(nearestCS[0], nearestCS[1]);
+                                return;
+                            }
+                        }
+                    }
+                    // Move towards the goal
+                    moveOneStepTo(destX, destY);
+                    consumeBatteryForMovement();
+                }
             }
         }
     }
 
-    // We reuse the rest of MyRobot's methods (moveOneStepTo, isAdjacentTo, distanceTo, etc.)
-
-    @Override
-    public void handleMessage(Message msg) {
-        System.out.println(getName() + " a reçu un message: " + msg.getContent());
+    /**
+     * Check if the robot is near an exit zone
+     * @return true if the robot is near an exit zone, false otherwise
+     */
+    private boolean isNearExit() {
+        // Check if we're at the top of the grid (y=0) which is where exits are located
+        return this.getY() <= 1; // Consider both y=0 and y=1 as near exit
     }
-    
+
+    /**
+     * Count the number of steps the robot has been stuck
+     */
+    private int stuckCounter = 0;
+    private int lastX = -1;
+    private int lastY = -1;
+
+    /**
+     * Check if the robot is stuck (hasn't moved in several steps)
+     */
+    private boolean isStuck() {
+        if (lastX == this.getX() && lastY == this.getY()) {
+            stuckCounter++;
+            return stuckCounter > 5; // Consider stuck after 5 steps without movement
+        } else {
+            stuckCounter = 0;
+            lastX = this.getX();
+            lastY = this.getY();
+            return false;
+        }
+    }
+
+    /**
+     * Try to find an alternative path when stuck
+     */
+    private void tryToUnstuck() {
+        // Try random movement to get unstuck
+        randomOrientation();
+        if (freeForward()) {
+            moveForward();
+            consumeBatteryForMovement();
+            System.out.println(getName() + " essaie de se débloquer avec un mouvement aléatoire.");
+        }
+    }
+
+    /**
+     * Check if the robot is near a charging station
+     * @return true if the robot is near a charging station, false otherwise
+     */
+    private boolean isNearChargingStation() {
+        for (int[] csPos : chargingStations) {
+            if (Math.abs(this.getX() - csPos[0]) + Math.abs(this.getY() - csPos[1]) <= 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Find the nearest charging station
+     * @return The coordinates of the nearest charging station [x, y]
+     */
+    private int[] findNearestChargingStation() {
+        int[] nearest = null;
+        double minDist = Double.MAX_VALUE;
+
+        for (int[] csPos : chargingStations) {
+            double dist = distanceTo(this.getX(), this.getY(), csPos[0], csPos[1]);
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = csPos;
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Charge the robot's battery
+     */
+    private void chargeBattery() {
+        if (isCharging) {
+            batteryLevel += CHARGING_RATE;
+            if (batteryLevel >= MAX_BATTERY) {
+                batteryLevel = MAX_BATTERY;
+                isCharging = false;
+                System.out.println(getName() + " a terminé de charger sa batterie. Niveau: 100%");
+            } else {
+                System.out.println(getName() + " est en train de charger. Niveau de batterie: " + (int)batteryLevel + "%");
+            }
+            // Update robot color based on battery level
+            updateRobotColor();
+        }
+    }
+
+    /**
+     * Consume battery for movement
+     */
+    public void consumeBatteryForMovement() {
+        double previousLevel = batteryLevel;
+        batteryLevel -= MOVE_BATTERY_COST;
+
+        // Log battery consumption
+        System.out.println("[CONSOMMATION] " + getName() + " - Mouvement: -" + MOVE_BATTERY_COST +
+                         "% (" + (int)previousLevel + "% -> " + (int)batteryLevel + "%)");
+
+        if (batteryLevel < LOW_BATTERY_THRESHOLD && !isCharging) {
+            System.out.println(getName() + " a un niveau de batterie faible: " + (int)batteryLevel + "%");
+            broadcastLowBatteryMessage();
+        }
+        // Update robot color based on battery level
+        updateRobotColor();
+    }
+
+    /**
+     * Consume battery for picking up a package
+     */
+    public void consumeBatteryForPickup() {
+        batteryLevel -= PICKUP_BATTERY_COST;
+    }
+
+    /**
+     * Consume battery for depositing a package
+     */
+    public void consumeBatteryForDeposit() {
+        double previousLevel = batteryLevel;
+        batteryLevel -= DEPOSIT_BATTERY_COST;
+
+        // Log battery consumption
+        System.out.println("[CONSOMMATION] " + getName() + " - Dépôt: -" + DEPOSIT_BATTERY_COST +
+                         "% (" + (int)previousLevel + "% -> " + (int)batteryLevel + "%)");
+
+        // Update robot color based on battery level
+        updateRobotColor();
+    }
+
+    /**
+     * Update the robot's color based on battery level
+     * - Green: Battery level > 70%
+     * - Orange: Battery level between 30% and 70%
+     * - Dégradé de rouge: Battery level < 20%
+     */
+    private void updateRobotColor() {
+        int[] newColor;
+        String batteryStatus;
+
+        if (batteryLevel > 70) {
+            // Good battery level - green
+            newColor = new int[]{0, 255, 0};
+            batteryStatus = "EXCELLENT";
+        } else if (batteryLevel > 30) {
+            // Medium battery level - orange
+            newColor = new int[]{255, 165, 0};
+            batteryStatus = "MOYEN";
+        } else if (batteryLevel > 20) {
+            // Low battery level - light red
+            newColor = new int[]{255, 100, 100};
+            batteryStatus = "FAIBLE";
+        } else if (batteryLevel > 10) {
+            // Very low battery level - medium red
+            newColor = new int[]{255, 50, 50};
+            batteryStatus = "TRES FAIBLE";
+        } else {
+            // Critical battery level - dark red
+            newColor = new int[]{255, 0, 0};
+            batteryStatus = "CRITIQUE";
+        }
+
+        // Log battery level to terminal
+        System.out.println("[BATTERIE] " + getName() + " - Niveau: " + (int)batteryLevel + "% - Etat: " + batteryStatus);
+
+        // Set the new color
+        this.setColor(newColor);
+    }
+
+    /**
+     * Check if the battery is critically low
+     * @return true if the battery is critically low, false otherwise
+     */
+    private boolean isBatteryCritical() {
+        return batteryLevel <= CRITICAL_BATTERY_THRESHOLD;
+    }
+
+    /**
+     * Predict if the robot has enough battery to reach a destination
+     * @param destX X coordinate of the destination
+     * @param destY Y coordinate of the destination
+     * @return true if the robot has enough battery to reach the destination, false otherwise
+     */
+    public boolean canReachDestination(int destX, int destY) {
+        // Calculate Manhattan distance to destination
+        int distance = Math.abs(this.getX() - destX) + Math.abs(this.getY() - destY);
+
+        // Calculate battery needed for the trip (movement + deposit)
+        double batteryNeeded = (distance * MOVE_BATTERY_COST) + DEPOSIT_BATTERY_COST;
+
+        // Add a safety margin of 10%
+        batteryNeeded *= 1.1;
+
+        // Check if we have enough battery
+        return batteryLevel >= batteryNeeded;
+    }
+
+    /**
+     * Broadcast a message to all robots in the field
+     * @param content The message content
+     */
+    private void broadcastMessage(String content) {
+        SimpleMessage msg = new SimpleMessage(this, content);
+        List<Robot> robots = env.getRobot();
+        for (Robot r : robots) {
+            if (r != this && r instanceof MyTransitRobot) {
+                ((MyTransitRobot)r).handleSimpleMessage(msg);
+            }
+        }
+    }
+
+    /**
+     * Broadcast a low battery message
+     */
+    private void broadcastLowBatteryMessage() {
+        String content = MSG_LOW_BATTERY + "|" + this.getX() + "|" + this.getY() + "|" + (int)batteryLevel;
+        broadcastMessage(content);
+    }
+
+    /**
+     * Broadcast a help request message
+     */
+    private void broadcastHelpRequest() {
+        if (!waitingForHelp) {
+            String content = MSG_HELP_REQUEST + "|" + this.getX() + "|" + this.getY();
+            if (carriedPackage != null) {
+                content += "|" + carriedPackage.getDestinationGoalId();
+            }
+            broadcastMessage(content);
+            waitingForHelp = true;
+        }
+    }
+
+    /**
+     * Handle incoming messages
+     */
     @Override
-    public void move(int step) {
-        step();
+    public void handleMessage(fr.emse.fayol.maqit.simulator.components.Message msg) {
+        // Delegate to our SimpleMessage handler
+        handleSimpleMessage(new SimpleMessage(this, msg.getContent()));
+    }
+
+    /**
+     * Handle incoming simple messages
+     */
+    public void handleSimpleMessage(SimpleMessage msg) {
+        String content = msg.getContent();
+        String[] parts = content.split("\\|");
+
+        if (parts.length > 0) {
+            String messageType = parts[0];
+
+            if (messageType.equals(MSG_LOW_BATTERY)) {
+                // Another robot has low battery
+                System.out.println(getName() + " a reçu un message de batterie faible de " + msg.getSender().getName());
+
+            } else if (messageType.equals(MSG_HELP_REQUEST)) {
+                // Another robot needs help
+                if (etat == Etat.FREE && batteryLevel > LOW_BATTERY_THRESHOLD) {
+                    // We're free and have enough battery to help
+                    System.out.println(getName() + " va aider " + msg.getSender().getName());
+                    String response = MSG_HELP_OFFER + "|" + this.getX() + "|" + this.getY();
+                    SimpleMessage responseMsg = new SimpleMessage(this, response);
+                    msg.getSender().handleSimpleMessage(responseMsg);
+                }
+
+            } else if (messageType.equals(MSG_HELP_OFFER)) {
+                // Another robot offers help
+                if (waitingForHelp) {
+                    System.out.println(getName() + " a reçu une offre d'aide de " + msg.getSender().getName());
+                    waitingForHelp = false;
+                }
+
+            } else if (messageType.equals(MSG_TRANSIT_FULL)) {
+                // A transit zone is full
+                int transitX = Integer.parseInt(parts[1]);
+                int transitY = Integer.parseInt(parts[2]);
+                System.out.println(getName() + " a été informé que la zone de transit (" + transitX + "," + transitY + ") est pleine");
+
+            } else if (messageType.equals(MSG_TRANSIT_AVAILABLE)) {
+                // A transit zone has space available
+                int transitX = Integer.parseInt(parts[1]);
+                int transitY = Integer.parseInt(parts[2]);
+                System.out.println(getName() + " a été informé que la zone de transit (" + transitX + "," + transitY + ") est disponible");
+            }
+        }
     }
 }

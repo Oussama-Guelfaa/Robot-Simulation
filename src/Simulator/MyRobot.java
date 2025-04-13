@@ -3,7 +3,6 @@ package Simulator;
 import fr.emse.fayol.maqit.simulator.components.ColorInteractionRobot;
 import fr.emse.fayol.maqit.simulator.components.ColorPackage;
 import fr.emse.fayol.maqit.simulator.components.ColorStartZone;
-import fr.emse.fayol.maqit.simulator.components.ComponentType;
 import fr.emse.fayol.maqit.simulator.components.Message;
 import fr.emse.fayol.maqit.simulator.components.Orientation;
 import fr.emse.fayol.maqit.simulator.components.PackageState;
@@ -20,7 +19,7 @@ import java.util.Map;
 public class MyRobot extends ColorInteractionRobot {
 
     public enum Etat { FREE, TRANSPORT, DELIVRE }
-    
+
     protected Etat etat;
     public ColorPackage carriedPackage;
     protected int destX;
@@ -38,7 +37,7 @@ public class MyRobot extends ColorInteractionRobot {
         GOALS.put(2, new int[]{15, 0});  // Z2
 
     }
-    // 
+    //
     int[][] startZones = { {6, 19}, {9, 19}, {12, 19} };
 
     public MyRobot(String name, int field, int debug, int[] pos, Color color, int rows, int columns, ColorGridEnvironment env, long seed) {
@@ -51,7 +50,7 @@ public class MyRobot extends ColorInteractionRobot {
 
 
     /**
-     *methodes pour trouver une zone de depart non vide  
+     *methodes pour trouver une zone de depart non vide
      * @return
      */
     protected ColorStartZone findStartZoneWithPackage() {
@@ -65,8 +64,8 @@ public class MyRobot extends ColorInteractionRobot {
             }
         }
         return null;
-    }    
-    
+    }
+
     /**
      * methode qui montre si lo robot touche une cellule  ou pas
      * @param row
@@ -76,10 +75,10 @@ public class MyRobot extends ColorInteractionRobot {
     protected boolean isAdjacentTo(int row, int col) {
         return Math.abs(this.getX() - row) + Math.abs(this.getY() - col) == 1;
     }
-    
-    
+
+
     /**
-     *  methode pour savoir si une cellule est libre 
+     *  methode pour savoir si une cellule est libre
      * @param x
      * @param y
      * @return
@@ -88,9 +87,9 @@ public class MyRobot extends ColorInteractionRobot {
         Cell c = env.getGrid()[x][y];
         return c == null || c.getContent() == null;
     }
-    
+
     /**
-     * methode pour calculer la distance euclidienne 
+     * methode pour calculer la distance euclidienne
      * @param x1
      * @param y1
      * @param x2
@@ -100,7 +99,7 @@ public class MyRobot extends ColorInteractionRobot {
     public double distanceTo(int x1, int y1, int x2, int y2) {
         return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
     }
-    
+
     /**
      *  methode pour savoir si le robot est toujours active ou il a disparu
      * @return
@@ -108,7 +107,7 @@ public class MyRobot extends ColorInteractionRobot {
     public boolean isActive() {
         return etat != Etat.DELIVRE;
     }
-    
+
     /**
      *  methode pour faire avancer le robot un pas vers une destinantion
      * @param targetX
@@ -131,7 +130,7 @@ public class MyRobot extends ColorInteractionRobot {
                 bestMove = loc;
             }
         }
-        // s'orienter vers la meilleure position 
+        // s'orienter vers la meilleure position
         if (bestMove != null) {
             if (bestMove.getX() == this.getX() - 1) setCurrentOrientation(Orientation.up);
             if (bestMove.getX() == this.getX() + 1) setCurrentOrientation(Orientation.down);
@@ -139,10 +138,14 @@ public class MyRobot extends ColorInteractionRobot {
             if (bestMove.getY() == this.getY() + 1) setCurrentOrientation(Orientation.right);
 
             moveForward();
-        } 
+            // If this is a MyTransitRobot, consume battery for movement
+            if (this instanceof MyTransitRobot) {
+                ((MyTransitRobot)this).consumeBatteryForMovement();
+            }
+        }
     }
 
-    
+
     /**
      *  la logique de deplacemnet de robot
      */
@@ -152,7 +155,7 @@ public class MyRobot extends ColorInteractionRobot {
         if (etat == Etat.FREE) {
             ColorStartZone zone = findStartZoneWithPackage();
             if (zone == null) return;
-            
+
             if (isAdjacentTo(zone.getX(), zone.getY())) {
                 if (!zone.getPackages().isEmpty()) {
                     carriedPackage = zone.getPackages().get(0);// recupere le 1er paquet
@@ -186,7 +189,7 @@ public class MyRobot extends ColorInteractionRobot {
             }
         }
     }
-    
+
     @Override
     public void handleMessage(Message msg) {
         System.out.println(getName() + " a reçu un message: " + msg.getContent());

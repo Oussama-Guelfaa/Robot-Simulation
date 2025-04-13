@@ -4,9 +4,6 @@ import fr.emse.fayol.maqit.simulator.configuration.IniFile;
 
 
 import fr.emse.fayol.maqit.simulator.configuration.SimProperties;
-import fr.emse.fayol.maqit.simulator.components.SituatedComponent;
-
-
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,8 +16,6 @@ import fr.emse.fayol.maqit.simulator.components.ColorObstacle;
 import fr.emse.fayol.maqit.simulator.components.ColorPackage;
 import fr.emse.fayol.maqit.simulator.components.ColorStartZone;
 import fr.emse.fayol.maqit.simulator.components.ColorTransitZone;
-import fr.emse.fayol.maqit.simulator.components.InteractionRobot;
-import fr.emse.fayol.maqit.simulator.components.Message;
 import fr.emse.fayol.maqit.simulator.components.Robot;
 import fr.emse.fayol.maqit.simulator.environment.Cell;
 import fr.emse.fayol.maqit.simulator.environment.ColorCell;
@@ -30,10 +25,10 @@ import fr.emse.fayol.maqit.simulator.environment.ColorGridEnvironment;
  * Cette classe permet de realiser la simulation
  */
 public class MySimFactory extends SimFactory {
-	
+
 	private Map<String, ColorStartZone> startZonesMap = new HashMap<>();
 
-	public static int deliveredCount = 0;// compteur pour calculer le nb de pas effectuées 
+	public static int deliveredCount = 0;// compteur pour calculer le nb de pas effectuées
 	int nbPackages;
 	int nbNotGeneratedPackets;
 	int numberOfWorkers;
@@ -46,7 +41,7 @@ public class MySimFactory extends SimFactory {
     }
 
     /**
-     *  Créer l'environnement 
+     *  Créer l'environnement
      */
     @Override
     public void createEnvironment() {
@@ -99,26 +94,26 @@ public class MySimFactory extends SimFactory {
             ));
     }
 
-    
+
    /**
-    * methodes pour creer les paquets 
+    * methodes pour creer les paquets
     */
-    
+
     public void createPackages(int nbpackages) {
     	// Definir les zones de depart
         String[] startZones = { "A1", "A2", "A3" };
-        
-       
+
+
         for (int i = 0; i < nbpackages; i++) {
             int destinationId = rnd.nextInt(2)+1;
-            int ts = 0; // temps de depart 
-            
+            int ts = 0; // temps de depart
+
             int randomStartZone = rnd.nextInt(startZones.length);
             String zone = startZones[randomStartZone];
-            
+
             // les paquets ne seront pas physiquement dessinés, on leur attribue une position virtuelle
             int[] position = { -1, -1 };
-            
+
             ColorPackage pack = new ColorPackage(
                 position,
                 new int[]{
@@ -130,7 +125,7 @@ public class MySimFactory extends SimFactory {
                 ts,
                 zone
             );
-            
+
             ColorStartZone startZone = getStartZoneById(zone);
             if (startZone != null) {
                 startZone.addPackage(pack);
@@ -139,7 +134,7 @@ public class MySimFactory extends SimFactory {
             }
         }
     }
-    
+
     /**
      *  Methode pour recupérer une zone de départ par son identifiant
      * @param id
@@ -190,7 +185,7 @@ public class MySimFactory extends SimFactory {
             addNewComponent(tz);
         }
     }
-    
+
     /**
      * Creer les portes (en rouge)
      */
@@ -208,13 +203,13 @@ public class MySimFactory extends SimFactory {
         }
     }
 
-    
+
     /**
      *  creer les employés (en jaune)
      */
     public void createWorker() {
         for (int i = 0; i < numberOfWorkers; i++) {
-            int[] pos = environment.getPlace(); 
+            int[] pos = environment.getPlace();
             Worker worker = new Worker(
                 "Worker" + i,
                 sp.field,
@@ -228,7 +223,7 @@ public class MySimFactory extends SimFactory {
             addNewComponent(worker);
         }
     }
-    
+
     /**
      * Pour creer un robot normal utilise MyRobot
      * pour un robot transit utilise MyTransitRobot
@@ -246,57 +241,67 @@ public class MySimFactory extends SimFactory {
             addNewComponent(robot);
         }
     }
-    
+
     /**
      * Methode pour faire fonctionner le robot
      */
     @Override
     public void schedule() {
         List<Robot> robots = environment.getRobot();
-        
-        
-       
+
+
+
         int currentNBPacket;
         for (int i = 0; i < sp.step; i++) {
         	totalSteps++;
 
         // packet creation
-        if (nbNotGeneratedPackets > 0 && validGeneration()) {	
-        	if (nbNotGeneratedPackets > 2) 
+        if (nbNotGeneratedPackets > 0 && validGeneration()) {
+        	if (nbNotGeneratedPackets > 2)
         		currentNBPacket = rnd.nextInt(nbNotGeneratedPackets/2+1);
-        	else 
+        	else
         		currentNBPacket = 2;
-        	 createPackages(currentNBPacket);     
+        	 createPackages(currentNBPacket);
         	 nbNotGeneratedPackets -= currentNBPacket;
-        } 		 
-        	 
+        }
+
         // activation des robots
-        	 for (Robot r : robots) {
-                int[] prevPos = r.getLocation();
-                Cell[][] perception = environment.getNeighbor(r.getX(), r.getY(), r.getField());
-                r.updatePerception(perception);
+        // Create a new list to store robots that have not delivered
+        List<Robot> activeRobots = new ArrayList<>();
 
-                if (r instanceof MyTransitRobot) {
-                    ((MyTransitRobot) r).step();
-                    
-                }if(r instanceof MyRobot) {
-                	((MyRobot)r).step();
-                }
-                else {
-                	r.move(1);
-                }
-
-                updateEnvironment(prevPos, r.getLocation());
-
+        for (Robot r : robots) {
+            // Skip robots that have delivered their packages
+            if (r instanceof MyTransitRobot && ((MyTransitRobot) r).hasDelivered()) {
+                continue;
             }
 
+            activeRobots.add(r);
+
+            int[] prevPos = r.getLocation();
+            Cell[][] perception = environment.getNeighbor(r.getX(), r.getY(), r.getField());
+            r.updatePerception(perception);
+
+            if (r instanceof MyTransitRobot) {
+                ((MyTransitRobot) r).step();
+            } else if (r instanceof MyRobot) {
+                ((MyRobot)r).step();
+            } else {
+                r.move(1);
+            }
+
+            updateEnvironment(prevPos, r.getLocation());
+        }
+
+        // Replace the robots list with the active robots list
+        robots = activeRobots;
+
             refreshGW();
-            
+
             if (MySimFactory.deliveredCount >= nbPackages) {
                 System.out.println("Tous les paquets sont livrés en " + totalSteps + " étapes.");
                 break;
             }
-            
+
             try {
                 Thread.sleep(sp.waittime);
             } catch (InterruptedException e) {
@@ -319,7 +324,7 @@ public class MySimFactory extends SimFactory {
      */
     public static void main(String[] args) throws Exception {
         // Charger le fichier principal et le fichier d'environnement
-        IniFile ifile = new IniFile("parameters/configuration.ini"); 
+        IniFile ifile = new IniFile("parameters/configuration.ini");
         IniFile ifilenv = new IniFile("parameters/environment.ini");
 
         // instance pour les paramètres généraux (proptest.ini)
@@ -345,8 +350,8 @@ public class MySimFactory extends SimFactory {
         System.out.println("Environment size: " + sp.rows + "x" + sp.columns);
 
         MySimFactory sim = new MySimFactory(sp);
-        
-        // modifier 
+
+        // modifier
         sim.nbPackages = sp.nbrobot;
         sim.nbNotGeneratedPackets = sim.nbPackages;
         sim.numberOfWorkers = sp.nbobstacle / 2;
@@ -355,12 +360,12 @@ public class MySimFactory extends SimFactory {
         sim.createEnvironment();
         sim.createObstacle();
         sim.createGoal();
-        sim.createStartZones();       
+        sim.createStartZones();
         sim.createTransitZones();
         sim.createExitZones();
         sim.createWorker();
         sim.createRobot();
-        
+
         sim.initializeGW();
         sim.schedule();
     }

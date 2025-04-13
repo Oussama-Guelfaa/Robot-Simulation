@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run MySimFactory",
+            "request": "launch",
+            "mainClass": "Simulator.MySimFactory",
+            "projectName": "helloSimulation",
+            "classpath": [
+                "${workspaceFolder}/bin",
+                "${workspaceFolder}/lib/ini4j-0.5.1.jar",
+                "${workspaceFolder}/lib/maqitSimulator.jar"
+            ],
+            "preLaunchTask": "Compile Java",
+            "vmArgs": "-Djava.library.path=${workspaceFolder}/lib",
+            "javaExec": "/Users/oussamaguelfaa/Library/Application Support/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/17/bin/java"
+        }
+    ]
+}
