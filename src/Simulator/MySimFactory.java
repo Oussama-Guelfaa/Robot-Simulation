@@ -263,8 +263,6 @@ public class MySimFactory extends SimFactory {
     public void schedule() {
         List<Robot> robots = environment.getRobot();
 
-
-
         int currentNBPacket;
         for (int i = 0; i < sp.step; i++) {
         	totalSteps++;
@@ -289,6 +287,12 @@ public class MySimFactory extends SimFactory {
                 continue;
             }
 
+            // Skip workers (obstacles blancs) - ils ne doivent pas bouger
+            if (r instanceof Worker) {
+                activeRobots.add(r);
+                continue;
+            }
+
             activeRobots.add(r);
 
             int[] prevPos = r.getLocation();
@@ -300,7 +304,8 @@ public class MySimFactory extends SimFactory {
             } else if (r instanceof MyRobot) {
                 ((MyRobot)r).step();
             } else {
-                r.move(1);
+                // Ne pas déplacer les autres composants
+                // r.move(1); - Commenté pour éviter le déplacement des autres éléments
             }
 
             updateEnvironment(prevPos, r.getLocation());

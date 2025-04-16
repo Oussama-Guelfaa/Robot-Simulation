@@ -19,22 +19,18 @@ public class Worker extends ColorInteractionRobot {
         orientation =Orientation.up;
     }
     /**
-     * le deplacement de worker
+     * le deplacement de worker - modifié pour rester fixe
      */
     @Override
     public void move(int step) {
-        for (int i = 0; i < step; i++) {
-            if (freeForward()) {
-                moveForward();
-            }else {
-            	randomOrientation();            }
-        }
+        // Ne rien faire - les workers restent fixes
+        // Cela empêche les obstacles blancs de bouger
     }
 
 	@Override
 	public void handleMessage(Message msg) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 }

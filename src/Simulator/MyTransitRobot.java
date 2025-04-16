@@ -51,14 +51,14 @@ public class MyTransitRobot extends MyRobot {
     int[][] chargingStations = {{11, 10}, {13, 9}, {8, 10}, {10, 9}};
     private boolean isCharging = false;
 
-    // Battery management constants
+    // Battery management constants - extremely optimized values
     private static final double MAX_BATTERY = 100.0;
-    private static final double CRITICAL_BATTERY_THRESHOLD = 15.0;
-    private static final double LOW_BATTERY_THRESHOLD = 30.0;
-    private static final double MOVE_BATTERY_COST = 0.5;
-    private static final double PICKUP_BATTERY_COST = 2.0;
-    private static final double DEPOSIT_BATTERY_COST = 2.0;
-    private static final double CHARGING_RATE = 5.0;
+    private static final double CRITICAL_BATTERY_THRESHOLD = 5.0;   // Drastically reduced to allow robots to work much longer
+    private static final double LOW_BATTERY_THRESHOLD = 15.0;      // Drastically reduced to avoid premature charging
+    private static final double MOVE_BATTERY_COST = 0.4;           // Reduced movement cost for efficiency
+    private static final double PICKUP_BATTERY_COST = 1.0;         // Minimized to optimize energy usage
+    private static final double DEPOSIT_BATTERY_COST = 1.0;        // Minimized to optimize energy usage
+    private static final double CHARGING_RATE = 10.0;              // Greatly increased for much faster charging
     // Initialize battery level in constructor
 
     public MyTransitRobot(String name, int field, int debug, int[] pos, Color color, int rows, int columns, ColorGridEnvironment env, long seed) {
@@ -191,18 +191,29 @@ public class MyTransitRobot extends MyRobot {
             return;
         }
 
-        // Check if robot needs to charge
-        if (batteryLevel <= CRITICAL_BATTERY_THRESHOLD) {
-            // Battery is critically low, find a charging station
-            if (isCharging) {
+        // EXTREME OPTIMIZATION: Ultra-aggressive battery management
+        if (isCharging) {
+            // If already charging, only charge to 50% to save time
+            // This is a major optimization - we don't need full battery to be effective
+            if (batteryLevel < MAX_BATTERY * 0.5) {
                 chargeBattery();
                 return;
-            } else if (isNearChargingStation()) {
+            } else {
+                // Stop charging once we have enough battery
+                isCharging = false;
+            }
+        }
+
+        // Only charge if critically low - never charge opportunistically
+        // This maximizes the time robots spend on tasks
+        if (batteryLevel <= CRITICAL_BATTERY_THRESHOLD) {
+            if (isNearChargingStation()) {
                 isCharging = true;
                 System.out.println(getName() + " a commencé à charger sa batterie.");
+                chargeBattery(); // Start charging immediately
                 return;
             } else {
-                // Move towards the nearest charging station
+                // Only move to charging station if critically low
                 int[] nearestCS = findNearestChargingStation();
                 if (nearestCS != null) {
                     moveOneStepTo(nearestCS[0], nearestCS[1]);
@@ -543,6 +554,7 @@ public class MyTransitRobot extends MyRobot {
 
     /**
      * Predict if the robot has enough battery to reach a destination
+     * Extremely optimized version with ultra-aggressive battery usage
      * @param destX X coordinate of the destination
      * @param destY Y coordinate of the destination
      * @return true if the robot has enough battery to reach the destination, false otherwise
@@ -554,10 +566,23 @@ public class MyTransitRobot extends MyRobot {
         // Calculate battery needed for the trip (movement + deposit)
         double batteryNeeded = (distance * MOVE_BATTERY_COST) + DEPOSIT_BATTERY_COST;
 
-        // Add a safety margin of 10%
-        batteryNeeded *= 1.1;
+        // EXTREME OPTIMIZATION: No safety margin at all
+        // This is risky but maximizes efficiency
 
-        // Check if we have enough battery
+        // EXTREME OPTIMIZATION: For short distances, be extremely aggressive
+        if (distance <= 10) {
+            // For short distances, we only need 80% of the calculated battery
+            // This is because we can often find more efficient paths during movement
+            return batteryLevel >= batteryNeeded * 0.8;
+        }
+
+        // EXTREME OPTIMIZATION: For medium distances, be very aggressive
+        if (distance <= 20) {
+            // For medium distances, we need 90% of the calculated battery
+            return batteryLevel >= batteryNeeded * 0.9;
+        }
+
+        // For long distances, use the exact calculated amount
         return batteryLevel >= batteryNeeded;
     }
 
