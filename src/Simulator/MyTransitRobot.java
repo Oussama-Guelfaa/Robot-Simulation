@@ -12,6 +12,9 @@ import fr.emse.fayol.maqit.simulator.environment.ColorGridEnvironment;
 
 import java.awt.Color;
 import java.util.List;
+import java.util.Map;
+
+import Simulator.TaskCoordinator.Task;
 
 public class MyTransitRobot extends MyRobot {
 
@@ -62,6 +65,19 @@ public class MyTransitRobot extends MyRobot {
         super(name, field, debug, pos, color, rows, columns, env, seed);
         this.transitState = TransitState.FREE;
         this.batteryLevel = MAX_BATTERY; // Start with full battery
+
+        // Register with the task coordinator
+        TaskCoordinator coordinator = TaskCoordinator.getInstance();
+        coordinator.setEnvironment(env);
+        coordinator.registerRobot(this);
+    }
+
+    /**
+     * Get the current battery level
+     * @return The current battery level (0-100)
+     */
+    public double getBatteryLevel() {
+        return batteryLevel;
     }
 
     /**
@@ -243,27 +259,21 @@ public class MyTransitRobot extends MyRobot {
                             destX = goalPos[0];
                             destY = goalPos[1];
 
-                            // Decide whether to use transit zone
-                            if (isBetterToUseTransit(destX, destY) && !transitZonesAreFull()) {
-                                // Use transit zone
-                                ColorTransitZone tz = findTransitZoneNotFull();
-                                if (tz != null) {
-                                    etat = Etat.TRANSPORT;
-                                    transitState = TransitState.GOING_TO_TRANSIT;
-                                    System.out.println(getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
-                                                     " et va le déposer dans une zone de transit (" + transitX + "," + transitY + ")");
-                                } else {
-                                    // Direct delivery if no transit zone available
-                                    etat = Etat.TRANSPORT;
-                                    transitState = TransitState.GOING_TO_GOAL;
-                                    System.out.println(getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
-                                                     " pour la destination " + carriedPackage.getDestinationGoalId());
-                                }
+                            // Use the TaskCoordinator to decide whether to use transit zone
+                            TaskCoordinator coordinator = TaskCoordinator.getInstance();
+                            ColorTransitZone tz = findTransitZoneNotFull();
+
+                            if (tz != null && coordinator.shouldUseTransitZone(this, destX, destY, transitX, transitY)) {
+                                // Use transit zone based on coordinator's decision
+                                etat = Etat.TRANSPORT;
+                                transitState = TransitState.GOING_TO_TRANSIT;
+                                System.out.println("[COORDINATOR] " + getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
+                                                 " et va le déposer dans une zone de transit (" + transitX + "," + transitY + ")");
                             } else {
                                 // Direct delivery
                                 etat = Etat.TRANSPORT;
                                 transitState = TransitState.GOING_TO_GOAL;
-                                System.out.println(getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
+                                System.out.println("[COORDINATOR] " + getName() + " a pris un paquet de " + carriedPackage.getStartZone() +
                                                  " pour la destination " + carriedPackage.getDestinationGoalId());
                             }
                         }
@@ -304,7 +314,16 @@ public class MyTransitRobot extends MyRobot {
                     MySimFactory.deliveredCount++;
 
                     tempsArrivee = System.currentTimeMillis();
-                    System.out.println(getName() + " a livré le paquet " + carriedPackage.getId() + " à destination.");
+                    long deliveryTime = tempsArrivee - tempsDepart;
+                    double batteryUsed = MAX_BATTERY - batteryLevel;
+
+                    System.out.println("[COORDINATOR] " + getName() + " a livré le paquet " + carriedPackage.getId() +
+                                     " à destination en " + (deliveryTime/1000) + " secondes avec " +
+                                     (int)batteryUsed + "% de batterie consommée.");
+
+                    // Update the task coordinator with delivery statistics
+                    TaskCoordinator coordinator = TaskCoordinator.getInstance();
+                    coordinator.updateRobotEfficiency(this, deliveryTime, batteryUsed);
 
                     etat = Etat.DELIVRE;
                     transitState = TransitState.DELIVERED;

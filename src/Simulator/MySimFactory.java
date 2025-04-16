@@ -35,6 +35,13 @@ public class MySimFactory extends SimFactory {
 	Random rnd;
 	int totalSteps= 0;
 
+	// Define the goals map for the coordinator
+	protected static final Map<Integer, int[]> GOALS = new HashMap<>();
+	static {
+		GOALS.put(1, new int[]{5, 0});   // Z1
+		GOALS.put(2, new int[]{15, 0});  // Z2
+	}
+
 
     public MySimFactory(SimProperties sp) {
         super(sp);
@@ -103,6 +110,8 @@ public class MySimFactory extends SimFactory {
     	// Definir les zones de depart
         String[] startZones = { "A1", "A2", "A3" };
 
+        // Get the task coordinator
+        TaskCoordinator coordinator = TaskCoordinator.getInstance();
 
         for (int i = 0; i < nbpackages; i++) {
             int destinationId = rnd.nextInt(2)+1;
@@ -129,6 +138,11 @@ public class MySimFactory extends SimFactory {
             ColorStartZone startZone = getStartZoneById(zone);
             if (startZone != null) {
                 startZone.addPackage(pack);
+
+                // Create a task for this package in the coordinator
+                coordinator.createTask(pack, startZone, GOALS);
+                System.out.println("[COORDINATOR] Created new task for package " + pack.getId() +
+                                 " from " + zone + " to destination " + destinationId);
             } else {
                 System.out.println("La zone de départ " + zone + " n'existe pas !");
             }
