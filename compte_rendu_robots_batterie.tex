@@ -1,0 +1,752 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages essentiels
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Configuration de la page
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% Configuration des en-têtes et pieds de page
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Système de Robots Autonomes avec Batterie}
+\fancyhead[R]{Noa Akayad - Mines Saint-Étienne}
+\fancyfoot[C]{\thepage}
+
+% Configuration des liens hypertexte
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    pdftitle={Système de Robots Autonomes avec Gestion de Batterie},
+    pdfauthor={Noa Akayad},
+    pdfsubject={Robotique Autonome},
+    pdfkeywords={robotique, batterie, négociation, coordination, anti-encombrement}
+}
+
+% Configuration du code source
+\lstdefinestyle{javastyle}{
+    language=Java,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{gray!10},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=single,
+    rulecolor=\color{black},
+    tabsize=2,
+    captionpos=b,
+    breaklines=true,
+    breakatwhitespace=false,
+    escapeinside={\%*}{*)}
+}
+
+\lstset{style=javastyle}
+
+% Configuration des titres de sections
+\titleformat{\section}
+{\Large\bfseries\color{blue!80!black}}
+{\thesection}{1em}{}
+
+\titleformat{\subsection}
+{\large\bfseries\color{blue!60!black}}
+{\thesubsection}{1em}{}
+
+\titleformat{\subsubsection}
+{\normalsize\bfseries\color{blue!40!black}}
+{\thesubsubsection}{1em}{}
+
+% Commandes personnalisées
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\important}[1]{\textbf{\color{red}#1}}
+\newcommand{\concept}[1]{\textbf{\color{blue}#1}}
+
+\begin{document}
+
+% Page de titre
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Huge\bfseries COMPTE RENDU TECHNIQUE COMPLET}
+
+    \vspace{1cm}
+
+    {\LARGE\color{blue!80!black} SYSTÈME DE ROBOTS AUTONOMES\\AVEC GESTION DE BATTERIE ET\\NÉGOCIATION AUTOMATIQUE DES RÔLES}
+
+    \vspace{2cm}
+
+    \vspace{2cm}
+
+    {\Large\bfseries Auteur :} {\Large Noa Akayad}
+
+    \vspace{0.5cm}
+
+    {\Large\bfseries Institution :} {\Large Mines Saint-Étienne}
+
+    \vspace{0.5cm}
+
+    {\Large\bfseries Date :} {\Large Décembre 2024}
+
+    \vfill
+
+\end{titlepage}
+
+% Table des matières
+\tableofcontents
+\newpage
+
+% Introduction
+\section{INTRODUCTION}
+\subsection{Contexte et problématique :}
+
+Dans le domaine de la robotique industrielle moderne, la gestion autonome d'un entrepôt par des robots mobiles représente un défi technique majeur. L'objectif consiste à transporter efficacement des paquets depuis des zones de départ vers des destinations finales, en passant par des zones de transit intermédiaires, tout en gérant les contraintes énergétiques réelles des robots.
+
+Notre projet s'inscrit dans cette problématique en proposant un système entièrement autonome où les robots négocient automatiquement leurs rôles, gèrent leur batterie de manière intelligente, et coordonnent leurs actions pour éviter les encombrements. Cette approche élimine le besoin d'un contrôleur central et permet une adaptation dynamique aux conditions changeantes de l'environnement.
+
+Le système présente plusieurs innovations majeures :
+\begin{itemize}
+  \item \textbf{Négociation automatique des rôles} : Suppression du besoin de définir manuellement des types de robots différents
+  \item \textbf{Gestion complète de batterie} : Intégration de contraintes énergétiques réalistes avec stations de charge
+  \item \textbf{Algorithmes anti-encombrement} : Système sophistiqué pour éviter les blocages et optimiser les flux
+  \item \textbf{Architecture unifiée} : Tous les robots sont identiques au départ et s'adaptent selon les besoins
+\end{itemize}
+
+\subsection{Évolution par rapport au projet de base :}
+
+Notre système représente une évolution significative par rapport aux approches traditionnelles. Dans les systèmes classiques, il fallait créer manuellement différents types de robots (\code{MyRobot} pour start→transit, \code{MyTransitRobot} pour transit→goal) avec des comportements prédéfinis.
+
+\textbf{Limitations de l'approche traditionnelle :}
+\begin{itemize}
+    \item Rigidité des rôles : Impossible de s'adapter dynamiquement aux besoins
+    \item Complexité de configuration : Nécessité de définir manuellement le nombre de robots par type
+    \item Absence de gestion énergétique : Les robots fonctionnaient sans contraintes de batterie
+    \item Problèmes d'encombrement : Pas de mécanismes sophistiqués pour éviter les blocages
+\end{itemize}
+
+\textbf{Notre approche révolutionnaire :}
+
+Nous avons complètement repensé l'architecture en créant un système où tous les robots démarrent identiques et négocient automatiquement leurs rôles selon un algorithme de répartition équilibrée. Cette négociation se fait en début de simulation via un protocole de communication simple mais efficace.
+
+L'introduction du système de batterie ajoute une dimension réaliste cruciale : chaque mouvement consomme de l'énergie, forçant les robots à planifier leurs actions et à gérer leurs ressources énergétiques via des stations de charge stratégiquement placées.
+
+\subsection{Objectifs techniques :}
+
+L'objectif principal est de créer un système logistique autonome capable de :
+
+\begin{enumerate}
+    \item \textbf{Auto-organisation} : Les robots négocient leurs rôles sans intervention externe
+    \item \textbf{Gestion énergétique} : Intégration de contraintes de batterie réalistes
+    \item \textbf{Optimisation des flux} : Évitement intelligent des encombrements
+    \item \textbf{Robustesse} : Fonctionnement stable même avec des paramètres extrêmes
+    \item \textbf{Scalabilité} : Adaptation automatique au nombre de robots disponibles
+\end{enumerate}
+
+Le système vise à maintenir un équilibre optimal entre efficacité de transport et contraintes énergétiques, tout en évitant les problèmes de coordination qui peuvent survenir dans les systèmes multi-robots.
+
+\section{Modèle Conceptuel}
+
+Le modèle conceptuel de notre système repose sur une architecture décentralisée où chaque robot est un agent autonome capable de négocier son rôle, gérer sa batterie, et coordonner ses actions avec les autres agents. Cette approche élimine les points de défaillance unique tout en maintenant une coordination efficace.
+
+\subsection{Architecture des agents robotiques}
+
+\subsubsection{Agent robotique unifié}
+
+Contrairement aux approches traditionnelles qui utilisent des classes différentes pour chaque type de robot, notre système utilise une classe unique \code{MyRobot} qui encapsule tous les comportements possibles. Chaque robot possède les mêmes capacités de base mais adapte son comportement selon le rôle qui lui est attribué dynamiquement.
+
+\textbf{Caractéristiques fondamentales de l'agent :}
+\begin{itemize}
+    \item \textbf{Autonomie décisionnelle} : Chaque robot prend ses propres décisions sans supervision centrale
+    \item \textbf{Adaptabilité comportementale} : Capacité à changer de rôle selon les besoins du système
+    \item \textbf{Conscience énergétique} : Gestion proactive de sa batterie et planification des recharges
+    \item \textbf{Communication locale} : Échange d'informations avec les autres robots pour la coordination
+\end{itemize}
+
+\subsubsection{Système de négociation des rôles}
+
+Le cœur de notre innovation réside dans le mécanisme de négociation automatique des rôles. Au lieu de définir a priori le type de chaque robot, le système permet une attribution dynamique basée sur l'ordre lexicographique des noms et la communication inter-robots.
+
+\paragraph{Protocole de négociation :}
+
+\begin{enumerate}
+    \item \textbf{Phase d'initialisation} : Tous les robots démarrent en état \code{ROLE\_NEGOTIATION}
+    \item \textbf{Comptage global} : Chaque robot s'enregistre dans un compteur partagé \code{totalRobots}
+    \item \textbf{Attribution par ordre lexicographique} : Le rôle est attribué selon l'ordre des noms de robots et la répartition 50/50
+    \item \textbf{Confirmation} : Le robot passe en état \code{FREE} et commence son travail
+\end{enumerate}
+
+Cette approche garantit une répartition équilibrée : les robots avec les noms lexicographiquement plus petits (Robot0, Robot1, etc.) prennent le rôle 0 jusqu'à atteindre \code{totalRobots / 2}, puis les robots restants prennent le rôle 1.
+
+\subsubsection{Modèle énergétique intégré}
+
+L'introduction d'un système de batterie réaliste transforme fondamentalement le comportement des robots. Chaque action a un coût énergétique, forçant les robots à optimiser leurs déplacements et à planifier leurs recharges.
+
+\textbf{Paramètres énergétiques :}
+\begin{itemize}
+    \item \textbf{Capacité} : 100\% de batterie maximum
+    \item \textbf{Consommation} : 1\% par mouvement réel
+    \item \textbf{Seuil critique} : 20\% (déclenchement automatique de la recherche de charge)
+    \item \textbf{Vitesse de charge} : 5\% par étape de simulation
+    \item \textbf{Stations disponibles} : 4 stations réparties stratégiquement
+\end{itemize}
+
+\subsection{Environnement de simulation}
+
+\subsubsection{Topologie de l'entrepôt}
+
+Notre environnement simule un entrepôt réaliste organisé sur une grille 20×20 cases avec des zones spécialisées et des contraintes de circulation.
+
+\paragraph{Zones de départ (Start Zones) :}
+\begin{itemize}
+    \item \textbf{Positions} : A1(6,19), A2(9,19), A3(12,19)
+    \item \textbf{Fonction} : Points d'apparition des paquets à transporter
+    \item \textbf{Comportement} : Génération dynamique de paquets avec destinations aléatoires
+    \item \textbf{Contrainte} : Les robots ne peuvent pas occuper ces cases (zones réservées)
+\end{itemize}
+
+\paragraph{Zones de transit (Transit Zones) :}
+\begin{itemize}
+    \item \textbf{Positions} : (12,10), (12,9), (9,10), (9,9)
+    \item \textbf{Capacité} : 1 paquet par zone maximum
+    \item \textbf{Innovation} : Points de relais permettant le découplage des phases de transport
+    \item \textbf{Avantage} : Optimisation des flux et réduction des temps d'attente
+\end{itemize}
+
+\paragraph{Zones de destination (Goal Zones) :}
+\begin{itemize}
+    \item \textbf{Positions} : Z1(5,0), Z2(15,0)
+    \item \textbf{Fonction} : Destinations finales pour la livraison des paquets
+    \item \textbf{Validation} : Comptabilisation automatique des livraisons réussies
+\end{itemize}
+
+\paragraph{Infrastructure énergétique :}
+\begin{itemize}
+    \item \textbf{Stations de charge} : (2,2), (17,2), (2,17), (17,17)
+    \item \textbf{Couleur distinctive} : Orange (255,165,0) pour identification visuelle
+    \item \textbf{Accessibilité} : Les robots se positionnent en cases adjacentes pour charger
+    \item \textbf{Gestion} : Système de réservation pour éviter les conflits d'accès
+\end{itemize}
+
+\subsubsection{Contraintes et obstacles}
+
+L'environnement intègre plusieurs types de contraintes qui complexifient la navigation et nécessitent des stratégies d'évitement sophistiquées :
+
+\begin{itemize}
+    \item \textbf{Obstacles fixes} : Définis dans environment.ini, créent des contraintes de navigation permanentes
+    \item \textbf{Workers mobiles} : Employés se déplaçant aléatoirement, représentent des obstacles dynamiques
+    \item \textbf{Zones réservées} : Start, transit et goal zones sont inaccessibles aux robots
+    \item \textbf{Congestion dynamique} : Accumulation temporaire de robots dans certaines zones
+\end{itemize}
+
+\subsection{Mécanismes de coordination}
+
+\subsubsection{Communication inter-robots}
+
+Bien que notre système soit décentralisé, les robots maintiennent une coordination minimale via des variables statiques partagées et des mécanismes de notification.
+
+\paragraph{Système de communication décentralisée :}
+\begin{lstlisting}[caption=Communication pour les dépôts en transit]
+private void notifyPackageInTransit(String packageId, int transitZoneX, int transitZoneY) {
+    String notification = "PACKAGE_IN_TRANSIT:" + packageId + ":" + transitZoneX + ":" +
+                         transitZoneY + ":" + getName();
+    broadcastMessage(notification);
+    System.out.println(getName() + " notifie: colis " + packageId +
+                      " déposé en transit (" + transitZoneX + "," + transitZoneY + ")");
+}
+
+private void broadcastMessage(String messageContent) {
+    if (env != null && env.getRobot() != null) {
+        for (fr.emse.fayol.maqit.simulator.components.Robot robot : env.getRobot()) {
+            if (robot instanceof MyRobot && !robot.getName().equals(getName())) {
+                ((MyRobot) robot).receiveMessage(messageContent);
+            }
+        }
+    }
+    System.out.println(getName() + " diffuse: " + messageContent);
+}
+\end{lstlisting}
+
+Ce mécanisme permet aux robots de communiquer directement entre eux via des messages structurés, optimisant ainsi la coordination entre les deux phases de transport sans coordination centrale.
+
+\subsubsection{Gestion des priorités}
+
+Le système intègre une hiérarchie de priorités claire qui guide le comportement de chaque robot :
+
+\begin{enumerate}
+    \item \textbf{Priorité 1} : Négociation des rôles (phase d'initialisation)
+    \item \textbf{Priorité 2} : Gestion de la batterie (charge en cours et recherche de charge)
+    \item \textbf{Priorité 3} : Vérification batterie critique
+    \item \textbf{Priorité 4} : Travail normal selon le rôle attribué
+\end{enumerate}
+
+Cette hiérarchisation garantit que les besoins vitaux (énergie) priment sur les tâches de transport, assurant la survie et la disponibilité continue des robots.
+
+\subsection{Algorithmes anti-encombrement}
+
+\subsubsection{Problématique de l'encombrement}
+
+L'un des défis majeurs dans les systèmes multi-robots est la gestion de l'encombrement. Sans mécanismes appropriés, les robots tendent à se regrouper dans les mêmes zones, créant des embouteillages qui dégradent significativement les performances globales.
+
+\subsubsection{Solution : Architecture moveAway unifiée}
+
+Nous avons développé un système sophistiqué de gestion de l'encombrement basé sur une architecture modulaire qui remplace les multiples méthodes ad-hoc par une approche unifiée et paramétrable.
+
+\paragraph{Architecture des méthodes d'évitement :}
+
+\begin{itemize}
+    \item \textbf{Méthode générique} : \code{moveAwayFromZones()} - Algorithme central paramétrable
+    \item \textbf{Méthodes spécialisées} : Wrappers dédiés pour chaque type de zone
+    \item \textbf{Réduction du code} : De 186 lignes (6 méthodes) à 98 lignes (4 méthodes)
+    \item \textbf{Maintenabilité} : Un seul algorithme à optimiser et déboguer
+\end{itemize}
+
+\paragraph{Stratégies d'évitement contextuelles :}
+
+\begin{itemize}
+    \item \textbf{Post-dépôt transit} : S'éloigner vers les zones de départ (rôle 0)
+    \item \textbf{Attente transit} : Évitement simple sans direction privilégiée (rôle 1)
+    \item \textbf{Post-livraison} : S'éloigner des zones de goal
+    \item \textbf{Encombrement start} : Dispersion temporaire pour réduire la congestion
+\end{itemize}
+
+Cette approche contextuelle permet d'adapter le comportement d'évitement selon la situation spécifique de chaque robot, optimisant ainsi les flux globaux dans l'entrepôt.
+
+\section{Implémentation Technique}
+
+Cette section détaille la transformation de notre modèle conceptuel en un système fonctionnel. L'implémentation technique se concentre sur trois aspects fondamentaux : l'architecture logicielle unifiée, les algorithmes de gestion énergétique, et les mécanismes de coordination décentralisée.
+
+\subsection{Architecture logicielle : De la théorie au code}
+
+\subsubsection{Classe MyRobot unifiée}
+
+Notre innovation majeure réside dans l'utilisation d'une classe unique \code{MyRobot} qui remplace l'ancienne architecture à classes multiples. Cette approche élimine la complexité de gestion de types différents tout en conservant la flexibilité comportementale.
+
+\paragraph{Structure de la classe principale :}
+
+\begin{lstlisting}[caption=Variables d'état et de batterie dans MyRobot]
+public class MyRobot extends Robot {
+    // États comportementaux
+    protected enum Etat {
+        FREE, TRANSPORT, DELIVRE, MOVING_AWAY,
+        ROLE_NEGOTIATION, CHARGING, GOING_TO_CHARGE
+    }
+
+    // Variables de négociation des rôles
+    protected static int totalRobots = 0;
+    protected int assignedRole = -1; // 0: start→transit, 1: transit→goal
+    protected boolean roleNegotiationComplete = false;
+
+    // Système de batterie complet
+    protected int batteryLevel = 100;           // Niveau actuel (0-100%)
+    protected int maxBatteryLevel = 100;        // Capacité maximale
+    protected int batteryConsumptionPerMove = 1; // Consommation par mouvement
+    protected int lowBatteryThreshold = 20;     // Seuil critique (20%)
+    protected boolean isCharging = false;       // État de charge
+    protected int chargingRate = 5;             // Vitesse de charge (5%/step)
+    protected String reservedChargingStation = null; // Station réservée
+}
+\end{lstlisting}
+
+Cette structure unifie tous les aspects comportementaux dans une seule classe, simplifiant considérablement la gestion du système tout en maintenant la séparation logique des responsabilités.
+
+\subsubsection{Algorithme de négociation des rôles}
+
+Le mécanisme de négociation automatique des rôles constitue le cœur de notre système décentralisé. Il permet une attribution équilibrée sans coordination centrale.
+
+\paragraph{Protocole de négociation en 3 étapes :}
+
+Le système utilise un protocole sophistiqué basé sur l'ordre lexicographique des noms et la communication inter-robots :
+
+\textbf{Étape 0 - Découverte des robots :}
+\begin{itemize}
+    \item Chaque robot s'annonce via \code{broadcastMessage("ROBOT\_ANNOUNCE:" + getName())}
+    \item Attente de 4×waittime pour recevoir les annonces des autres robots
+    \item Mise à jour du nombre total de robots connus
+\end{itemize}
+
+\textbf{Étape 1 - Attribution basée sur l'ordre lexicographique :}
+\begin{lstlisting}[caption=Attribution des rôles par ordre lexicographique]
+// Compter combien de robots avec un nom "plus petit" devraient prendre le rôle 0
+int robotsBeforeMe = 0;
+for (int i = 0; i < totalRobots; i++) {
+    String otherRobotName = "Robot" + i;
+    if (otherRobotName.compareTo(getName()) < 0) {
+        robotsBeforeMe++;
+    }
+}
+
+// Si je suis parmi les premiers robots (ordre lexicographique), je prends le rôle 0
+if (robotsBeforeMe < targetRole0Count) {
+    assignedRole = 0;
+    knownRole0Count++;
+    broadcastMessage("ROLE_ASSIGNED:0:" + getName() + ":count:" + knownRole0Count);
+    System.out.println(getName() + " s'attribue le rôle 0 (start→transit)");
+} else {
+    assignedRole = 1;
+    broadcastMessage("ROLE_ASSIGNED:1:" + getName());
+    System.out.println(getName() + " prend le rôle 1 (transit→goal)");
+}
+\end{lstlisting}
+
+\textbf{Étape 2 - Finalisation :}
+\begin{itemize}
+    \item Attente de 9×waittime pour finaliser la négociation
+    \item Passage à l'état \code{FREE} pour commencer le travail
+\end{itemize}
+
+\textbf{Avantages de cette approche :}
+\begin{itemize}
+    \item \textbf{Déterminisme} : Ordre lexicographique garantit une attribution cohérente
+    \item \textbf{Équilibrage automatique} : Répartition 50/50 avec \code{targetRole0Count = totalRobots / 2}
+    \item \textbf{Communication décentralisée} : Chaque robot annonce son rôle aux autres
+    \item \textbf{Robustesse} : Pas de coordinateur central, résistant aux pannes
+\end{itemize}
+
+\subsection{Système de gestion énergétique}
+
+\subsubsection{Modèle de consommation énergétique}
+
+Notre système intègre un modèle énergétique réaliste où chaque action a un coût. Cette contrainte force les robots à optimiser leurs déplacements et à planifier leurs recharges.
+
+\begin{lstlisting}[caption=Consommation de batterie lors des mouvements]
+@Override
+public boolean moveForward() {
+    boolean result = super.moveForward();
+    if (result) {
+        consumeBattery(); // Consommation uniquement si mouvement réussi
+    }
+    return result;
+}
+
+protected void consumeBattery() {
+    if (batteryLevel > 0) {
+        batteryLevel -= batteryConsumptionPerMove;
+        if (batteryLevel < 0) {
+            batteryLevel = 0;
+        }
+
+        // Afficher le niveau de batterie tous les 10% et quand critique
+        int currentDisplayLevel = (batteryLevel / 10) * 10;
+        if (currentDisplayLevel != lastBatteryDisplayLevel ||
+            batteryLevel <= lowBatteryThreshold) {
+            System.out.println(getName() + " - Niveau de batterie: " +
+                             batteryLevel + "%");
+            lastBatteryDisplayLevel = currentDisplayLevel;
+        }
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Algorithme de gestion des priorités énergétiques}
+
+La gestion de la batterie suit une hiérarchie de priorités stricte qui garantit la survie énergétique des robots tout en maximisant leur productivité.
+
+\begin{lstlisting}[caption=Logique de priorité dans la méthode step()]
+public void step() {
+    // PRIORITÉ 1: Négociation des rôles (phase d'initialisation)
+    if (etat == Etat.ROLE_NEGOTIATION) {
+        negotiateRole();
+        return;
+    }
+
+    // PRIORITÉ 2: Gestion de la batterie (charge en cours)
+    if (etat == Etat.CHARGING) {
+        handleChargingLogic();
+        return;
+    }
+
+    if (etat == Etat.GOING_TO_CHARGE) {
+        goToChargingStation();
+        return;
+    }
+
+    // PRIORITÉ 3: Vérification batterie critique
+    if (needsCharging() && etat != Etat.CHARGING && etat != Etat.GOING_TO_CHARGE) {
+        // Abandonner la tâche actuelle
+        if (carriedPackage != null) {
+            System.out.println(getName() + " - Batterie critique! Abandon de la tâche actuelle");
+            // Remettre le paquet à sa place si possible
+            carriedPackage = null;
+        }
+        etat = Etat.GOING_TO_CHARGE;
+        System.out.println(getName() + " - Batterie critique (" +
+            batteryLevel + "%), recherche d'une station de chargement");
+        return;
+    }
+
+    // PRIORITÉ 4: Travail normal selon le rôle attribué
+    if (assignedRole == 0) {
+        stepRole0(); // Logique rôle 0 (start → transit)
+    } else if (assignedRole == 1) {
+        stepRole1(); // Logique rôle 1 (transit → goal)
+    }
+}
+\end{lstlisting}
+
+Cette hiérarchisation garantit que les besoins énergétiques priment toujours sur les tâches de transport, évitant les pannes de batterie qui rendraient les robots inutilisables.
+
+\subsubsection{Gestion préventive de la batterie}
+
+Une amélioration majeure a été apportée au système de gestion énergétique : la vérification préventive de la batterie avant la prise de colis. Cette approche proactive évite les abandons de tâches et améliore significativement l'efficacité du système.
+
+\begin{lstlisting}[caption=Vérification préventive de batterie avant prise de colis]
+// Variables de configuration de la batterie
+protected int batteryLevel = 100;           // Niveau de batterie (0-100%)
+protected int lowBatteryThreshold = 20;     // Seuil critique (20%)
+protected int minBatteryForTask = 60;       // Seuil minimum pour prendre un colis (60%)
+
+// Méthode de vérification préventive
+protected boolean hasSufficientBatteryForTask() {
+    return batteryLevel >= minBatteryForTask;
+}
+
+// Intégration dans la logique des rôles
+// Dans stepRole0() et stepRole1()
+if (etat == Etat.FREE) {
+    // Vérifier d'abord si on a assez de batterie pour prendre un colis
+    if (!hasSufficientBatteryForTask()) {
+        System.out.println(getName() + " - Batterie insuffisante (" +
+                          batteryLevel + "%), va se charger");
+        etat = Etat.GOING_TO_CHARGE;
+        return;
+    }
+    // ... reste de la logique de prise de colis
+}
+\end{lstlisting}
+
+\paragraph{Avantages de cette approche :}
+\begin{itemize}
+    \item \textbf{Réduction des abandons} : Les robots ne prennent plus de colis qu'ils ne peuvent pas livrer
+    \item \textbf{Planification énergétique} : Charge préventive à 60\% au lieu de réactive à 20\%
+    \item \textbf{Évitement des pertes} : Plus de colis perdus due à une batterie critique
+    \item \textbf{Efficacité améliorée} : Moins de cycles inutiles de prise/abandon de colis
+\end{itemize}
+
+\subsubsection{Algorithme de recherche et réservation de stations}
+
+Le système de charge intègre un mécanisme sophistiqué de recherche et de réservation des stations pour éviter les conflits d'accès.
+
+\begin{lstlisting}[caption=Recherche intelligente de station de charge]
+protected String findNearestChargingStation() {
+    String nearestStation = null;
+    double minDistance = Double.MAX_VALUE;
+
+    // Positions des stations de chargement (configurables)
+    Map<String, int[]> chargingStations = new HashMap<>();
+    chargingStations.put("station1", new int[]{2, 2});
+    chargingStations.put("station2", new int[]{17, 2});
+    chargingStations.put("station3", new int[]{2, 17});
+    chargingStations.put("station4", new int[]{17, 17});
+
+    for (Map.Entry<String, int[]> entry : chargingStations.entrySet()) {
+        String stationName = entry.getKey();
+        int[] pos = entry.getValue();
+
+        // Vérification de disponibilité avant calcul de distance
+        if (isChargingStationFree(stationName)) {
+            double distance = distanceTo(this.getX(), this.getY(), pos[0], pos[1]);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestStation = stationName;
+            }
+        }
+    }
+    return nearestStation;
+}
+
+protected boolean isChargingStationFree(String stationName) {
+    // Vérifier si un autre robot a déjà réservé cette station
+    for (fr.emse.fayol.maqit.simulator.components.Robot robot : env.getRobot()) {
+        if (robot != this && robot instanceof MyRobot) {
+            MyRobot otherRobot = (MyRobot) robot;
+            if (stationName.equals(otherRobot.reservedChargingStation)) {
+                return false; // Station déjà réservée
+            }
+        }
+    }
+    return true; // Station disponible
+}
+\end{lstlisting}
+
+\subsection{Algorithmes anti-encombrement : Architecture unifiée}
+
+\subsubsection{Problématique et solution}
+
+L'encombrement représentait un défi majeur dans notre système initial. Les robots avaient tendance à se regrouper, créant des embouteillages qui dégradaient significativement les performances. Notre solution consiste en une refactorisation complète vers une architecture unifiée.
+
+\paragraph{Évolution architecturale :}
+\begin{itemize}
+    \item \textbf{Avant} : Multiples méthodes d'évitement avec logique répétitive
+    \item \textbf{Après} : 1 méthode générique + 3 wrappers spécialisés
+    \item \textbf{Avantage} : Code plus maintenable et extensible
+\end{itemize}
+
+\subsubsection{Algorithme générique d'évitement}
+
+Le cœur de notre système anti-encombrement repose sur une méthode générique paramétrable qui gère tous les cas d'évitement.
+
+\begin{lstlisting}[caption=Méthode générique d'évitement des zones]
+private void moveAwayFromZones(int[][] avoidZones, double minDistance,
+                              int[][] targetZones, boolean changeStateWhenFar,
+                              String successMessage) {
+    // 1. Vérifier distance actuelle aux zones à éviter
+    double minDistToAvoid = Double.MAX_VALUE;
+    for (int[] zonePos : avoidZones) {
+        double dist = distanceTo(this.getX(), this.getY(), zonePos[0], zonePos[1]);
+        minDistToAvoid = Math.min(minDistToAvoid, dist);
+    }
+
+    // 2. Si assez loin, retourner au travail
+    if (minDistToAvoid >= minDistance) {
+        if (changeStateWhenFar) {
+            etat = Etat.FREE;
+            if (successMessage != null) {
+                System.out.println(successMessage);
+            }
+        }
+        return;
+    }
+
+    // 3. Chercher la meilleure position d'évitement
+    int bestX = this.getX();
+    int bestY = this.getY();
+    double bestScore = -Double.MAX_VALUE;
+    int searchRadius = targetZones != null ? 3 : 2;
+
+    for (int x = Math.max(0, this.getX() - searchRadius);
+         x <= Math.min(19, this.getX() + searchRadius); x++) {
+        for (int y = Math.max(0, this.getY() - searchRadius);
+             y <= Math.min(19, this.getY() + searchRadius); y++) {
+
+            if (!isCellFree(x, y)) continue;
+            if (x == this.getX() && y == this.getY()) continue;
+
+            // Calculer distance aux zones à éviter
+            double minDistToAvoidFromPos = Double.MAX_VALUE;
+            for (int[] zonePos : avoidZones) {
+                double dist = distanceTo(x, y, zonePos[0], zonePos[1]);
+                minDistToAvoidFromPos = Math.min(minDistToAvoidFromPos, dist);
+            }
+
+            double score = minDistToAvoidFromPos; // Plus loin = mieux
+
+            // Si zones cibles définies, équilibrer éloignement/rapprochement
+            if (targetZones != null) {
+                if (minDistToAvoidFromPos < minDistance) continue;
+
+                double minDistToTarget = Double.MAX_VALUE;
+                for (int[] targetPos : targetZones) {
+                    double dist = distanceTo(x, y, targetPos[0], targetPos[1]);
+                    minDistToTarget = Math.min(minDistToTarget, dist);
+                }
+                score = minDistToAvoidFromPos - minDistToTarget;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestX = x;
+                bestY = y;
+            }
+        }
+    }
+
+    // 4. Se déplacer vers la meilleure position trouvée
+    if ((bestX != this.getX() || bestY != this.getY()) && isCellFree(bestX, bestY)) {
+        moveOneStepTo(bestX, bestY);
+    } else if (changeStateWhenFar) {
+        etat = Etat.FREE; // Si aucun mouvement possible, retourner au travail
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Méthodes spécialisées : Wrappers contextuels}
+
+L'architecture unifiée utilise des méthodes wrapper qui appellent l'algorithme générique avec des paramètres adaptés à chaque contexte.
+
+\begin{lstlisting}[caption=Wrappers spécialisés pour chaque contexte]
+// Évitement des zones de transit avec comportement adaptatif
+private void moveAwayFromTransitZones(boolean targetStartZones,
+                                     double minDistance, boolean changeStateWhenFar) {
+    // Vérifier si on est trop proche des zones de transit
+    double minDistToTransit = Double.MAX_VALUE;
+    for (int[] transitPos : transitZones) {
+        double dist = distanceTo(this.getX(), this.getY(), transitPos[0], transitPos[1]);
+        minDistToTransit = Math.min(minDistToTransit, dist);
+    }
+
+    // Si on est à moins de la distance minimale, s'éloigner
+    if (minDistToTransit < minDistance) {
+        String successMessage = null;
+        int[][] targetZones = null;
+
+        if (targetStartZones) {
+            targetZones = startZones;
+            successMessage = getName() + " (rôle 0) s'est éloigné vers les zones de départ et retourne au travail";
+        }
+
+        moveAwayFromZones(transitZones, minDistance, targetZones, changeStateWhenFar, successMessage);
+    } else if (changeStateWhenFar) {
+        // Déjà assez loin, retourner au travail
+        etat = Etat.FREE;
+        if (targetStartZones) {
+            System.out.println(getName() + " (rôle 0) s'est éloigné vers les zones de départ et retourne au travail");
+        }
+    }
+}
+
+// Évitement simple des zones de départ
+private void moveAwayFromStartZones() {
+    moveAwayFromZones(startZones, 2.0, null, false, null);
+}
+
+// Évitement des zones de goal après livraison
+private void moveAwayFromGoalZones() {
+    int[][] goalArray = GOALS.values().toArray(new int[0][]);
+    moveAwayFromZones(goalArray, 2.0, null, true,
+                     getName() + " (rôle 1) s'est éloigné et retourne au travail");
+}
+\end{lstlisting}
+
+\paragraph{Utilisation contextuelle dans le code :}
+
+\begin{itemize}
+    \item \textbf{Rôle 0 après dépôt} : \code{moveAwayFromTransitZones(true, 8.0, true)} - S'éloigner vers les zones de départ
+    \item \textbf{Rôle 1 en attente} : \code{moveAwayFromTransitZones(false, 4.0, false)} - Évitement simple
+    \item \textbf{Encombrement start} : \code{moveAwayFromStartZones()} - Dispersion temporaire
+    \item \textbf{Post-livraison} : \code{moveAwayFromGoalZones()} - Retour au travail après livraison
+\end{itemize}
+
+Cette architecture unifiée permet une maintenance simplifiée tout en conservant la flexibilité nécessaire pour gérer les différents contextes d'évitement dans le système.
+
+\end{document}
+
